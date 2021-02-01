@@ -14,15 +14,15 @@ from typing import Optional, Union
 import numpy as np
 from PIL import Image
 
-try:
-    # If the Jacinle library (https://github.com/vacancy/Jacinle) is present, use its auto_travis feature.
-    from jacinle.jit.cext import auto_travis
-    auto_travis(__file__, required_files=['*.so'])
-except ImportError as e:
-    # Otherwise, fall back to the subprocess.
-    import subprocess
-    print('Compiling and loading c extensions from "{}".'.format(osp.realpath(osp.dirname(__file__))))
-    subprocess.check_call(['./travis.sh'], cwd=osp.dirname(__file__))
+# try:
+#     # If the Jacinle library (https://github.com/vacancy/Jacinle) is present, use its auto_travis feature.
+#     from jacinle.jit.cext import auto_travis
+#     auto_travis(__file__, required_files=['*.so'])
+# except ImportError as e:
+#     # Otherwise, fall back to the subprocess.
+#     import subprocess
+#     print('Compiling and loading c extensions from "{}".'.format(osp.realpath(osp.dirname(__file__))))
+#     subprocess.check_call(['./travis.sh'], cwd=osp.dirname(__file__))
 
 
 __all__ = ['set_random_seed', 'set_verbose', 'inpaint', 'inpaint_regularity']
@@ -51,11 +51,13 @@ PMLIB.PM_set_verbose.argtypes = [ctypes.c_int]
 PMLIB.PM_free_pymat.argtypes = [CMatT]
 PMLIB.PM_inpaint.argtypes = [CMatT, CMatT, ctypes.c_int]
 PMLIB.PM_inpaint.restype = CMatT
-PMLIB.PM_inpaint_regularity.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
+PMLIB.PM_inpaint_regularity.argtypes = [
+    CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
 PMLIB.PM_inpaint_regularity.restype = CMatT
 PMLIB.PM_inpaint2.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int]
 PMLIB.PM_inpaint2.restype = CMatT
-PMLIB.PM_inpaint2_regularity.argtypes = [CMatT, CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
+PMLIB.PM_inpaint2_regularity.argtypes = [
+    CMatT, CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
 PMLIB.PM_inpaint2_regularity.restype = CMatT
 
 
@@ -98,16 +100,19 @@ def inpaint(
     assert image.ndim == 3 and image.shape[2] == 3 and image.dtype == 'uint8'
 
     if mask is None:
-        mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
+        mask = (image == (255, 255, 255)).all(
+            axis=2, keepdims=True).astype('uint8')
         mask = np.ascontiguousarray(mask)
     else:
         mask = _canonize_mask_array(mask)
 
     if global_mask is None:
-        ret_pymat = PMLIB.PM_inpaint(np_to_pymat(image), np_to_pymat(mask), ctypes.c_int(patch_size))
+        ret_pymat = PMLIB.PM_inpaint(np_to_pymat(
+            image), np_to_pymat(mask), ctypes.c_int(patch_size))
     else:
         global_mask = _canonize_mask_array(global_mask)
-        ret_pymat = PMLIB.PM_inpaint2(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), ctypes.c_int(patch_size))
+        ret_pymat = PMLIB.PM_inpaint2(np_to_pymat(image), np_to_pymat(
+            mask), np_to_pymat(global_mask), ctypes.c_int(patch_size))
 
     ret_npmat = pymat_to_np(ret_pymat)
     PMLIB.PM_free_pymat(ret_pymat)
@@ -127,22 +132,25 @@ def inpaint_regularity(
         image = np.array(image)
     image = np.ascontiguousarray(image)
 
-    assert isinstance(ijmap, np.ndarray) and ijmap.ndim == 3 and ijmap.shape[2] == 3 and ijmap.dtype == 'float32'
+    assert isinstance(
+        ijmap, np.ndarray) and ijmap.ndim == 3 and ijmap.shape[2] == 3 and ijmap.dtype == 'float32'
     ijmap = np.ascontiguousarray(ijmap)
 
     assert image.ndim == 3 and image.shape[2] == 3 and image.dtype == 'uint8'
     if mask is None:
-        mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
+        mask = (image == (255, 255, 255)).all(
+            axis=2, keepdims=True).astype('uint8')
         mask = np.ascontiguousarray(mask)
     else:
         mask = _canonize_mask_array(mask)
 
-
     if global_mask is None:
-        ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
+        ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(
+            mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
     else:
         global_mask = _canonize_mask_array(global_mask)
-        ret_pymat = PMLIB.PM_inpaint2_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
+        ret_pymat = PMLIB.PM_inpaint2_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(
+            global_mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
 
     ret_npmat = pymat_to_np(ret_pymat)
     PMLIB.PM_free_pymat(ret_pymat)
@@ -192,10 +200,10 @@ def np_to_pymat(npmat):
 
 def pymat_to_np(pymat):
     npmat = np.ctypeslib.as_array(
-        ctypes.cast(pymat.data_ptr, ctypes.POINTER(dtype_pymat_to_ctypes[pymat.dtype])),
+        ctypes.cast(pymat.data_ptr, ctypes.POINTER(
+            dtype_pymat_to_ctypes[pymat.dtype])),
         (pymat.shape.height, pymat.shape.width, pymat.shape.channels)
     )
     ret = np.empty(npmat.shape, npmat.dtype)
     ret[:] = npmat
     return ret
-
